@@ -164,7 +164,7 @@ aif/
 │   │   ├── approvals.py           # First-run and destructive command gating
 │   │   ├── limits.py              # Iteration limit (50) with user prompt
 │   │   └── sandbox.py             # Static analysis + subprocess isolation
-│   ├── logging/                   # Logging system
+│   ├── aif_logging/               # Logging system (renamed from logging/ — see §15)
 │   │   ├── __init__.py
 │   │   ├── logger.py              # Core logging (prompts, results, events)
 │   │   ├── iterations.py          # Per-prompt iteration chain tracking
@@ -819,7 +819,7 @@ The learn mode depends on an external LLM producing correct handler code. If the
 ### 11.3 Ambiguous Handler Boundaries — RESOLVED
 If a sentence is: "play something and say hello" — `play`'s handler needs to know that "say hello" belongs to a different token. This is the old CLINT `segregate()` problem.
 
-**Resolution:** Instead of maintaining a static list of all keywords to check boundaries against, we fetch all tokens present in the current prompt at the start of each processing cycle. Since this is an NLP tool (not a full-blown AI), prompts are short and the number of tokens per prompt is small. This keeps boundary detection lightweight — just scan for known tokens in the current sentence state.
+**Resolution:** `find_token_boundary()` in `src/engine/tokenizer.py`. Instead of loading all tokens from the DB into memory and scanning against them, the function iterates over the words in the current text (the prompt fragment) and checks each word against the registry. Since prompts are short (few words) but the token DB can grow large, this is the more scalable direction — O(words_in_prompt) DB lookups rather than O(all_tokens) in memory. Handlers call `find_token_boundary(text, exclude_keywords)` to find where the next token starts and stop consuming operands at that position. Matches the legacy CLINT `segregate()` approach, modernized.
 
 ### 11.4 Security of Executed Code — RESOLVED
 Even with subprocess isolation, a handler can still make network calls, read files, etc. within its subprocess. True sandboxing (seccomp, containers) would be heavier.
@@ -870,7 +870,7 @@ Build in stages. No stage begins until the previous is complete and approved.
 | 3 | `src/main.py` | REPL loop, input routing, mode detection |
 | 4 | `src/engine/` | `processor.py` (reduction loop), `tokenizer.py` (token identification), `resolver.py` (alias resolution, priority ordering) |
 | 5 | `src/registry/` | `store.py` (SQLite CRUD for tokens/aliases/tests), `loader.py` (dynamic handler loading), `schema.sql` |
-| 6 | `src/logging/` | `logger.py` (prompt/result logging), `iterations.py` (per-prompt iteration chains), `schema.sql` |
+| 6 | `src/aif_logging/` | `logger.py` (prompt/result logging), `iterations.py` (per-prompt iteration chains), `schema.sql` |
 | 7 | `db/` | Initialize `registry.db` and `logs.db` with schemas |
 | 8 | `tokens/` | Directory structure + manually ported handlers from legacy CLINT (plus, minus, add, subtract, multiply, divide, say, exit, etc.) |
 | 9 | `tests/` | Test suites for all ported handlers |
@@ -937,3 +937,19 @@ Build in stages. No stage begins until the previous is complete and approved.
 - **Readable parent functions** — top-level functions should read as a sequence of named function calls, not inline logic. The body tells you *what* happens; the called functions tell you *how*
 - **Functions and classes used where appropriate** — use classes when state needs to be grouped and managed; use plain functions for stateless operations
 - **No global mutable state** — pass dependencies explicitly
+
+---
+
+## 15. Implementation Deviations
+
+Deviations from the original design recorded during implementation.
+
+### 15.1 `src/logging/` renamed to `src/aif_logging/`
+
+**Stage:** 1 — Core Engine
+**Reason:** Python's `src/logging/__init__.py` shadows the stdlib `logging` module. When `rich` (our only external dependency) tries to `from logging import getLogger`, Python resolves it to our package instead of stdlib, causing an `ImportError`. Renaming to `aif_logging/` eliminates the conflict while keeping the module purpose clear. All internal imports updated accordingly.
+
+### 15.2 `find_token_boundary()` applied to all multi-number token handlers
+
+**Stage:** 1 — Core Engine
+**Reason:** Handlers with "consume all numbers" paths (`multiply`, `divide`, `add`) greedily consumed operands past token keyword boundaries. For example, `multiply 2 2 and 4 divide by 8` produced `128 divide by 8` instead of `16 divide by 8` because `multiply` consumed the `8` that belonged to `divide`. Fix: all multi-number handlers now call `find_token_boundary()` from `src/engine/tokenizer.py` to limit their operand scanning to the region before the next known token. Binary handlers (`minus`, `subtract`, `into`, `by`) only take one number from each side so they naturally respect boundaries. `plus` was additionally fixed to use only the last left number (consistent with `minus`) instead of summing all left numbers.
