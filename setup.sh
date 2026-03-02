@@ -56,7 +56,8 @@ source .venv/bin/activate
 # --- 3. Install dependencies ---
 echo -e "${YELLOW}[3/6]${NC} Installing dependencies..."
 pip install --require-hashes -r requirements.txt --quiet
-echo -e "  ${GREEN}✓${NC} Dependencies installed"
+pip install --require-hashes -r requirements-dev.txt --quiet
+echo -e "  ${GREEN}✓${NC} Dependencies installed (runtime + dev)"
 
 # --- 4. Create directory structure ---
 echo -e "${YELLOW}[4/6]${NC} Creating directories..."
