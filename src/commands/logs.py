@@ -5,14 +5,14 @@ Log commands — display prompts, traces, learning events, execution log.
 from rich.console import Console
 from rich.table import Table
 
-from src.aif_logging.logger import (
+from src.cinnamonint_logging.logger import (
     get_recent_prompts,
     search_prompts,
     get_learning_events,
     get_recent_executions,
     get_executions_for_prompt,
 )
-from src.aif_logging.iterations import get_iterations
+from src.cinnamonint_logging.iterations import get_iterations
 
 console = Console()
 

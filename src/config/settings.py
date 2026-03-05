@@ -1,5 +1,5 @@
 """
-AIF configuration — paths, flags, limits.
+Cinnamonint configuration — paths, flags, limits.
 All paths are resolved relative to the project root at runtime.
 """
 
@@ -28,7 +28,7 @@ LOGS_DB = os.path.join(DB_DIR, "logs.db")
 
 # --- schema paths ---
 REGISTRY_SCHEMA = os.path.join(PROJECT_ROOT, "src", "registry", "schema.sql")
-LOGS_SCHEMA = os.path.join(PROJECT_ROOT, "src", "aif_logging", "schema.sql")
+LOGS_SCHEMA = os.path.join(PROJECT_ROOT, "src", "cinnamonint_logging", "schema.sql")
 
 # --- tokens directory ---
 TOKENS_DIR = os.path.join(PROJECT_ROOT, "tokens")
@@ -50,7 +50,7 @@ HANDLER_TIMEOUT_SECONDS = 5
 WORD_LOOKUP_THRESHOLD = 250
 
 # --- REPL history ---
-HISTORY_FILE = os.path.join(PROJECT_ROOT, ".aif_history")
+HISTORY_FILE = os.path.join(PROJECT_ROOT, ".cinnamonint_history")
 
 # --- logging retention ---
 ITERATION_RETENTION_COUNT = 100

@@ -11,7 +11,7 @@ import stat
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.registry.store import init_db as init_registry
-from src.aif_logging.logger import init_db as init_logs
+from src.cinnamonint_logging.logger import init_db as init_logs
 from src.seed import seed
 from src.engine.processor import process
 from src.config import settings
@@ -28,7 +28,7 @@ def setUpModule():
 
 
 def _pipe(text):
-    """run aif with piped input, return stdout."""
+    """run cinnamonint with piped input, return stdout."""
     result = subprocess.run(
         [sys.executable, "-m", "src.main"],
         input=text,

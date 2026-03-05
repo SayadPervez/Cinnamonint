@@ -1,5 +1,5 @@
 """
-AIF — entry point and REPL loop.
+Cinnamonint — entry point and REPL loop.
 """
 
 import sys
@@ -13,8 +13,8 @@ from rich.console import Console
 
 from src.config.settings import detect_mode, MODE_HARDENED, HISTORY_FILE
 from src.engine.processor import process
-from src.aif_logging.logger import log_prompt
-from src.aif_logging.iterations import log_iteration, prune_old_iterations
+from src.cinnamonint_logging.logger import log_prompt
+from src.cinnamonint_logging.iterations import log_iteration, prune_old_iterations
 from src.commands.logs import handle_logs_command
 
 console = Console()
@@ -138,7 +138,7 @@ def repl():
     mode = detect_mode()
     mode_label = "workshop" if mode != MODE_HARDENED else "hardened"
     console.print(
-        f"[bold green]aif[/] [dim]({mode_label} mode)[/]  —  "
+        f"[bold green]cinnamonint[/] [dim]({mode_label} mode)[/]  —  "
         f"type a sentence, or [bold]exit[/] to quit"
     )
 

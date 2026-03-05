@@ -1,4 +1,4 @@
-# AIF — Design Document
+# Cinnamonint — Design Document
 
 > **Status:** Design Phase (no code yet)
 > **Date:** 1 March 2026
@@ -31,7 +31,7 @@ Same as the original CLINT, formalized:
 |--------|-----------|--------------------------|
 | Primary interaction (REPL) | Native fit — just stdin/stdout | Over-engineered for a prompt loop |
 | Learn mode (code review) | `rich` syntax highlighting, scrollable | Split-panel layout — nice but heavyweight |
-| Piping / scripting | `echo "5 plus 3" \| aif` just works | Breaks piping entirely |
+| Piping / scripting | `echo "5 plus 3" \| cinnamonint` just works | Breaks piping entirely |
 | Terminal compatibility | Works in any terminal | Requires modern terminal with mouse support |
 | SSH / remote use | Works perfectly | Rendering issues common |
 | Startup time | Instant | Framework initialization overhead |
@@ -133,7 +133,7 @@ Reasoning:
 ### 3.1 Directory Structure
 
 ```
-aif/
+cinnamonint/
 ├── AGENTS.md                      # This file — design document
 ├── legacy_clint_analysis.md       # Analysis of original CLINT
 ├── setup.sh                       # 1st build — install deps, init DB, ready for workshop
@@ -164,7 +164,7 @@ aif/
 │   │   ├── approvals.py           # First-run and destructive command gating
 │   │   ├── limits.py              # Iteration limit (50) with user prompt
 │   │   └── sandbox.py             # Static analysis + subprocess isolation
-│   ├── aif_logging/               # Logging system (renamed from logging/ — see §15)
+│   ├── cinnamonint_logging/               # Logging system (renamed from logging/ — see §15)
 │   │   ├── __init__.py
 │   │   ├── logger.py              # Core logging (prompts, results, events)
 │   │   ├── iterations.py          # Per-prompt iteration chain tracking
@@ -198,7 +198,7 @@ aif/
 │   └── ...
 │
 ├── dist/                          # Created by build.sh (2nd build)
-│   ├── aif                        # Runner script
+│   ├── cinnamonint                        # Runner script
 │   ├── src/                       # Source copy
 │   ├── tokens/                    # Handler copy
 │   ├── db/
@@ -689,11 +689,11 @@ What it does:
 5. Initialize db/logs.db with schema
 6. Create tokens/ directory structure
 7. Print instructions + suggested bash alias:
-   echo 'alias aif="python /path/to/aif/src/main.py"' >> ~/.bashrc
+   echo 'alias cinnamonint="python /path/to/cinnamonint/src/main.py"' >> ~/.bashrc
 ```
 
 After setup.sh, user can immediately:
-- Run the REPL: `aif` (or `python src/main.py`)
+- Run the REPL: `cinnamonint` (or `python src/main.py`)
 - Learn tokens: `learn plus`
 - Use tokens: `5 plus 3`
 - Import community tokens: `import <url>`
@@ -712,7 +712,7 @@ What it does:
 5. Copy tests/ to dist/tests/
 6. Clone db/registry.db to dist/db/registry.db — set chmod 444 (read-only)
 7. Create fresh dist/db/logs.db with schema — chmod 664 (writable)
-8. Generate dist/aif runner script
+8. Generate dist/cinnamonint runner script
 9. Print instructions + path to dist/
 ```
 
@@ -732,7 +732,7 @@ What it does:
 | Run test suites manually | Yes | Yes (for verification) |
 
 **The 2nd build is purely optional.** Workshop mode is fully functional. Hardened exists for:
-- Distributing to others (friend gets a pre-taught AIF)
+- Distributing to others (friend gets a pre-taught Cinnamonint)
 - Security (nobody accidentally teaches it something wrong)
 - Slightly faster startup (no learn mode initialization)
 
@@ -771,7 +771,7 @@ subtract/
 ### 10.2 Import Flow
 
 ```
-User: "import https://github.com/user/aif-tokens/tree/main/subtract"
+User: "import https://github.com/user/cinnamonint-tokens/tree/main/subtract"
   or: "import /path/to/local/subtract/"
 
 1. Download/copy the package to a temp directory
@@ -870,7 +870,7 @@ Build in stages. No stage begins until the previous is complete and approved.
 | 3 | `src/main.py` | REPL loop, input routing, mode detection |
 | 4 | `src/engine/` | `processor.py` (reduction loop), `tokenizer.py` (token identification), `resolver.py` (alias resolution, priority ordering) |
 | 5 | `src/registry/` | `store.py` (SQLite CRUD for tokens/aliases/tests), `loader.py` (dynamic handler loading), `schema.sql` |
-| 6 | `src/aif_logging/` | `logger.py` (prompt/result logging), `iterations.py` (per-prompt iteration chains), `schema.sql` |
+| 6 | `src/cinnamonint_logging/` | `logger.py` (prompt/result logging), `iterations.py` (per-prompt iteration chains), `schema.sql` |
 | 7 | `db/` | Initialize `registry.db` and `logs.db` with schemas |
 | 8 | `tokens/` | Directory structure + manually ported handlers from legacy CLINT (plus, minus, add, subtract, multiply, divide, say, exit, etc.) |
 | 9 | `tests/` | Test suites for all ported handlers |
@@ -944,10 +944,10 @@ Build in stages. No stage begins until the previous is complete and approved.
 
 Deviations from the original design recorded during implementation.
 
-### 15.1 `src/logging/` renamed to `src/aif_logging/`
+### 15.1 `src/logging/` renamed to `src/cinnamonint_logging/`
 
 **Stage:** 1 — Core Engine
-**Reason:** Python's `src/logging/__init__.py` shadows the stdlib `logging` module. When `rich` (our only external dependency) tries to `from logging import getLogger`, Python resolves it to our package instead of stdlib, causing an `ImportError`. Renaming to `aif_logging/` eliminates the conflict while keeping the module purpose clear. All internal imports updated accordingly.
+**Reason:** Python's `src/logging/__init__.py` shadows the stdlib `logging` module. When `rich` (our only external dependency) tries to `from logging import getLogger`, Python resolves it to our package instead of stdlib, causing an `ImportError`. Renaming to `cinnamonint_logging/` eliminates the conflict while keeping the module purpose clear. All internal imports updated accordingly.
 
 ### 15.2 `find_token_boundary()` applied to all multi-number token handlers
 

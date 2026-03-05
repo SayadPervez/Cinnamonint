@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# AIF setup.sh — 1st build (Workshop Mode)
+# Cinnamonint setup.sh — 1st build (Workshop Mode)
 # Checks Python, creates venv, installs deps, initializes DBs, seeds tokens.
 
 set -e
@@ -14,9 +14,9 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m' # No Color
 
-echo -e "${CYAN}╔══════════════════════════════════════╗${NC}"
-echo -e "${CYAN}║         AIF — Workshop Setup         ║${NC}"
-echo -e "${CYAN}╚══════════════════════════════════════╝${NC}"
+echo -e "${CYAN}╔══════════════════════════════════════════════╗${NC}"
+echo -e "${CYAN}║         Cinnamonint — Workshop Setup         ║${NC}"
+echo -e "${CYAN}╚══════════════════════════════════════════════╝${NC}"
 echo
 
 # --- 1. Check Python >= 3.10 ---
@@ -70,7 +70,7 @@ python -c "
 import sys, os
 sys.path.insert(0, '.')
 from src.registry.store import init_db as init_registry
-from src.aif_logging.logger import init_db as init_logs
+from src.cinnamonint_logging.logger import init_db as init_logs
 init_registry()
 init_logs()
 print('  databases initialized')
@@ -87,12 +87,12 @@ echo -e "${GREEN}═════════════════════
 echo -e "${GREEN}  Setup complete! Workshop mode ready.${NC}"
 echo -e "${GREEN}══════════════════════════════════════${NC}"
 echo
-echo -e "To start AIF:"
+echo -e "To start Cinnamonint:"
 echo -e "  ${CYAN}source .venv/bin/activate${NC}"
 echo -e "  ${CYAN}python src/main.py${NC}"
 echo
 echo -e "Or add an alias to your shell config:"
-echo -e "  ${CYAN}alias aif='cd $SCRIPT_DIR && source .venv/bin/activate && python src/main.py'${NC}"
+echo -e "  ${CYAN}alias cinnamonint='cd $SCRIPT_DIR && source .venv/bin/activate && python src/main.py'${NC}"
 echo
 echo -e "To run tests:"
 echo -e "  ${CYAN}python -m pytest tests/ -v${NC}"

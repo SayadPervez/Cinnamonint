@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.registry.store import add_token, add_test_case, get_token, init_db
-from src.aif_logging.logger import init_db as init_logs_db
+from src.cinnamonint_logging.logger import init_db as init_logs_db
 
 
 # ---------------------------------------------------------------------------

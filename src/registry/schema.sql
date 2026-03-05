@@ -1,4 +1,4 @@
--- AIF Token Registry Schema
+-- Cinnamonint Token Registry Schema
 -- Database: registry.db
 
 CREATE TABLE IF NOT EXISTS tokens (

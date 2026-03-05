@@ -9,7 +9,7 @@ import os
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from src.registry.store import init_db as init_registry
-from src.aif_logging.logger import init_db as init_logs
+from src.cinnamonint_logging.logger import init_db as init_logs
 from src.seed import seed
 from src.engine.processor import process
 

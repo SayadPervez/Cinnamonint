@@ -1,4 +1,4 @@
--- AIF Logging Schema
+-- Cinnamonint Logging Schema
 -- Database: logs.db
 
 CREATE TABLE IF NOT EXISTS prompts (
