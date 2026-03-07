@@ -33,11 +33,28 @@ def handle(sentence):
     before = sentence[:start]
     after = sentence[end:]
 
-    # remove optional "by" after the keyword
-    after_stripped = re.sub(r'^\s+by\b', '', after)
+    # remove optional filler words ("it", "them") and "by" after the keyword
+    has_by = bool(re.match(r'^\s+(?:it\s+|them\s+)?by\b', after))
+    has_filler = bool(re.match(r'^\s+(?:it|them)\b', after))
+    after_stripped = re.sub(r'^\s+(?:it\s+|them\s+)?by\b', '', after)
+    # also strip just filler words without "by" (e.g., "multiply it 5")
+    if after_stripped == after:
+        after_stripped = re.sub(r'^\s+(?:it|them)\b', '', after)
 
-    # extract numbers from left
-    left_numbers = re.findall(r'[-+]?\d*\.?\d+', before)
+    # determine if we should defer to a lower-priority token on the left.
+    # the boundary check only applies when:
+    #   - the "multiply ... by" form is used (signals sequential evaluation), OR
+    #   - a filler word like "it"/"them" is present (refers to a previous result)
+    # in the plain binary "X multiply Y" form, BODMAS applies — take left number.
+    from src.engine.tokenizer import find_token_boundary_reverse
+    left_boundary = find_token_boundary_reverse(before, {"multiply", "multiplied"})
+    defer_to_left = left_boundary > 0 and (has_by or has_filler)
+
+    if defer_to_left:
+        left_numbers = []
+    else:
+        left_numbers = re.findall(r'[-+]?\d*\.?\d+', before)
+
     # extract first number from right
     right_match = re.match(r'\s*([-+]?\d*\.?\d+)(.*)', after_stripped)
 
@@ -58,7 +75,7 @@ def handle(sentence):
         rest = after_stripped[boundary:]
 
         all_numbers = re.findall(r'[-+]?\d*\.?\d+', work_area)
-        if all_numbers:
+        if len(all_numbers) >= 2:
             product = 1.0
             for n in all_numbers:
                 product *= float(n)
@@ -69,7 +86,11 @@ def handle(sentence):
 
 
 def _remove_last_number(s):
-    return re.sub(r'\s*[-+]?\d*\.?\d+\s*$', ' ', s)
+    """remove the last number and any trailing connectors from a string."""
+    matches = list(re.finditer(r'[-+]?\d*\.?\d+', s))
+    if not matches:
+        return s
+    return s[:matches[-1].start()]
 
 
 def _remove_leading_numbers(s):

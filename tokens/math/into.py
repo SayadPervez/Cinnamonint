@@ -42,7 +42,11 @@ def handle(sentence):
 
 
 def _remove_last_number(s):
-    return re.sub(r'\s*[-+]?\d*\.?\d+\s*$', ' ', s)
+    """remove the last number and any trailing connectors from a string."""
+    matches = list(re.finditer(r'[-+]?\d*\.?\d+', s))
+    if not matches:
+        return s
+    return s[:matches[-1].start()]
 
 
 def _format_number(n):

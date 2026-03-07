@@ -87,6 +87,48 @@ def find_token_boundary(text, exclude_keywords=None):
     return len(text)
 
 
+def find_token_boundary_reverse(text, exclude_keywords=None):
+    """find the character position AFTER the last known token in text.
+
+    scans text for tokens and returns the position just after the last one
+    found. this marks where the operand territory for a subsequent handler
+    begins (i.e., numbers after this position belong to the handler on the
+    right, not the token on the left).
+
+    args:
+        text:             the text to scan
+        exclude_keywords: keyword(s) to skip
+
+    returns:
+        character position after the last token found,
+        or 0 if no token is found (entire text is available).
+    """
+    from src.registry.store import get_keywords_for_words
+
+    if exclude_keywords is None:
+        exclude_keywords = set()
+    elif isinstance(exclude_keywords, str):
+        exclude_keywords = {exclude_keywords}
+
+    lower = text.lower()
+    words = lower.split()
+
+    keyword_map = get_keywords_for_words(words)
+
+    last_boundary = 0
+    pos = 0
+    for word in words:
+        word_start = lower.find(word, pos)
+        if word in exclude_keywords:
+            pos = word_start + len(word)
+            continue
+        if word in keyword_map:
+            last_boundary = word_start + len(word)
+        pos = word_start + len(word)
+
+    return last_boundary
+
+
 def _word_position(sentence, words, word_index):
     """find the character position of the word at word_index in the sentence."""
     lower = sentence.lower()

@@ -21,8 +21,8 @@ def handle(sentence):
     lower = sentence.lower()
 
     # skip if 'by' is preceded by 'multiply'/'multiplied'/'divide'
-    # those handlers consume their own 'by'
-    preceded = re.search(r'\b(?:multiply|multiplied|divide)\s+by\b', lower)
+    # those handlers consume their own 'by' (possibly with filler like "it"/"them")
+    preceded = re.search(r'\b(?:multiply|multiplied|divide)\s+(?:(?:it|them)\s+)?by\b', lower)
     if preceded:
         # find a standalone 'by' that is NOT part of that pattern
         # search after the preceded match
@@ -66,7 +66,11 @@ def handle(sentence):
 
 
 def _remove_last_number(s):
-    return re.sub(r'\s*[-+]?\d*\.?\d+\s*$', ' ', s)
+    """remove the last number and any trailing connectors from a string."""
+    matches = list(re.finditer(r'[-+]?\d*\.?\d+', s))
+    if not matches:
+        return s
+    return s[:matches[-1].start()]
 
 
 def _format_number(n):

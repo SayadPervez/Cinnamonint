@@ -35,11 +35,14 @@ def process(sentence, on_iteration=None, on_limit_reached=None):
     keyword_map = _build_keyword_map(sentence)
     iteration = 0
     status = "ok"
+    skipped_keywords = set()
 
     while True:
         # --- find tokens in current sentence ---
         found = find_tokens_in_sentence(sentence, keyword_map)
-        if not found:
+        # filter out keywords that have already stalled on this sentence
+        candidates = [f for f in found if f["keyword"] not in skipped_keywords]
+        if not candidates:
             break
 
         # --- check iteration limits ---
@@ -58,7 +61,7 @@ def process(sentence, on_iteration=None, on_limit_reached=None):
                 pass
 
         # --- pick the next token to process ---
-        chosen = resolve_next_token(found)
+        chosen = resolve_next_token(candidates)
         if chosen is None:
             break
 
@@ -89,12 +92,15 @@ def process(sentence, on_iteration=None, on_limit_reached=None):
 
         # --- detect stall: handler returned sentence unchanged ---
         if sentence == _normalize_whitespace(before):
-            # handler couldn't process the token (e.g. no valid operands)
-            # log the no-op iteration and stop to avoid infinite loop
+            # handler couldn't process the token — skip it and try next
+            skipped_keywords.add(keyword)
             if on_iteration:
                 on_iteration(iteration, before, keyword, handler_path,
                              sentence, elapsed_ms)
-            break
+            continue
+
+        # --- handler made progress — reset skipped set ---
+        skipped_keywords.clear()
 
         # --- log the iteration ---
         if on_iteration:
