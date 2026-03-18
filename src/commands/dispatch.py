@@ -15,6 +15,7 @@ from src.community.exporter import export_token, export_tokens
 from src.community.importer import import_token, import_tokens_from_dir
 from src.community.forget import forget_token
 from src.community.restore import restore_token, list_archived_tokens
+from src.learn.learner import learn
 
 console = Console()
 
@@ -75,7 +76,11 @@ def _dispatch_mutation(cmd_word, stripped):
 
     # --- learn ---
     if cmd_word == "learn":
-        console.print("[yellow]Learn mode is not yet implemented (Stage 3).[/]")
+        parts = stripped.split(None, 1)
+        if len(parts) < 2:
+            console.print("[red]Usage: learn <word>[/]")
+            return True
+        learn(parts[1].strip())
         return True
 
     # --- forget ---

@@ -29,12 +29,14 @@ def setUpModule():
 
 def _pipe(text):
     """run cinnamonint with piped input, return stdout."""
+    env = os.environ.copy()
     result = subprocess.run(
         [sys.executable, "-m", "src.main"],
         input=text,
         capture_output=True,
         text=True,
         cwd=settings.PROJECT_ROOT,
+        env=env,
     )
     return result.stdout.strip(), result.returncode
 
@@ -69,7 +71,15 @@ class test_piped_mode_enforcement(unittest.TestCase):
 
     def test_learn_blocked_via_pipe(self):
         out, _ = _pipe("learn subtract")
-        self.assertIn("not yet implemented", out.lower())
+        # during an active learn session, the handover guard fires first;
+        # otherwise, the token-exists check fires. both are valid rejections.
+        handover_active = os.path.exists(
+            os.path.join(settings.PROJECT_ROOT, ".learn_handover.json")
+        )
+        if handover_active:
+            self.assertIn("pending learn session", out.lower())
+        else:
+            self.assertIn("already a registered token", out.lower())
 
     def test_forget_blocked_via_pipe(self):
         out, _ = _pipe("forget nonexistent_token_xyz")

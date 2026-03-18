@@ -4,12 +4,12 @@ Token registry — SQLite CRUD operations for tokens and aliases.
 
 import sqlite3
 import os
-from src.config.settings import REGISTRY_DB, REGISTRY_SCHEMA
+from src.config.settings import REGISTRY_DB, REGISTRY_SCHEMA, get_registry_db
 
 
 def _connect():
     """open a connection to the registry database with FK support."""
-    conn = sqlite3.connect(REGISTRY_DB)
+    conn = sqlite3.connect(get_registry_db())
     conn.execute("PRAGMA journal_mode=DELETE")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = sqlite3.Row

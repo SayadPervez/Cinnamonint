@@ -16,6 +16,7 @@ from src.engine.processor import process
 from src.cinnamonint_logging.logger import log_prompt
 from src.cinnamonint_logging.iterations import log_iteration, prune_old_iterations
 from src.commands.dispatch import dispatch
+from src.learn.learner import check_pending_handover, handle_return_flow
 
 
 console = Console()
@@ -120,8 +121,20 @@ def repl():
     """main REPL loop."""
     _load_history()
 
+    # --- check for pending learn handover ---
+    pending_word = check_pending_handover()
+    if pending_word:
+        should_continue = handle_return_flow()
+        if not should_continue:
+            _save_history()
+            return
+
     mode = detect_mode()
     mode_label = "workshop" if mode != MODE_HARDENED else "hardened"
+
+    if os.environ.get("CINNAMONINT_TEST_DB") == "1":
+        console.print("[yellow bold]⚠ Running against test registry (CINNAMONINT_TEST_DB=1)[/]")
+
     console.print(
         f"[bold green]cinnamonint[/] [dim]({mode_label} mode)[/]  —  "
         f"type a sentence, or [bold]exit[/] to quit"

@@ -39,3 +39,6 @@ legacy/
 
 # exports
 exports/
+
+# Learn mode handover state
+.learn_handover.json

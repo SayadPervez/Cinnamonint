@@ -7,10 +7,10 @@ import os
 
 
 def _find_project_root():
-    """walk up from this file until we find AGENTS.md (our root marker)."""
+    """walk up from this file until we find setup.sh (our root marker)."""
     current = os.path.dirname(os.path.abspath(__file__))
     while True:
-        if os.path.exists(os.path.join(current, "AGENTS.md")):
+        if os.path.exists(os.path.join(current, "setup.sh")):
             return current
         parent = os.path.dirname(current)
         if parent == current:
@@ -24,7 +24,19 @@ PROJECT_ROOT = _find_project_root()
 # --- database paths ---
 DB_DIR = os.path.join(PROJECT_ROOT, "db")
 REGISTRY_DB = os.path.join(DB_DIR, "registry.db")
+TEST_REGISTRY_DB = os.path.join(DB_DIR, "test_registry.db")
 LOGS_DB = os.path.join(DB_DIR, "logs.db")
+
+
+def get_registry_db():
+    """return the active registry DB path.
+
+    when CINNAMONINT_TEST_DB=1 is set, returns the test registry.
+    otherwise returns the production registry.
+    """
+    if os.environ.get("CINNAMONINT_TEST_DB") == "1":
+        return TEST_REGISTRY_DB
+    return REGISTRY_DB
 
 # --- schema paths ---
 REGISTRY_SCHEMA = os.path.join(PROJECT_ROOT, "src", "registry", "schema.sql")
@@ -58,6 +70,12 @@ ITERATION_RETENTION_COUNT = 100
 # --- community ---
 EXPORTS_DIR = os.path.join(PROJECT_ROOT, "exports")
 TOKEN_ARCHIVE_DIR = os.path.join(PROJECT_ROOT, ".token_archive")
+
+# --- learn mode ---
+LEARN_HANDOVER_FILE = os.path.join(PROJECT_ROOT, ".learn_handover.json")
+EDITOR_COMMAND = os.environ.get("CINNAMONINT_EDITOR", "code")
+SKILLS_DIR = os.path.join(PROJECT_ROOT, "skills")
+LEARN_SKILLS_FILE = os.path.join(SKILLS_DIR, "learn.skills.md")
 
 # --- safety: destructive shell patterns ---
 # strings checked against string literals inside handler source code
