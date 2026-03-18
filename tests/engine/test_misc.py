@@ -71,9 +71,9 @@ class test_piped_mode_enforcement(unittest.TestCase):
         out, _ = _pipe("learn subtract")
         self.assertIn("not yet implemented", out.lower())
 
-    def test_unlearn_blocked_via_pipe(self):
-        out, _ = _pipe("unlearn subtract")
-        self.assertIn("not yet implemented", out.lower())
+    def test_forget_blocked_via_pipe(self):
+        out, _ = _pipe("forget nonexistent_token_xyz")
+        self.assertIn("not found", out.lower())
 
     def test_logs_command_via_pipe(self):
         out, _ = _pipe("logs recent")
@@ -90,7 +90,7 @@ class test_piped_mode_enforcement(unittest.TestCase):
 
 
 class test_hardened_mode_via_pipe(unittest.TestCase):
-    """hardened mode (read-only registry) must block learn/unlearn via pipe."""
+    """hardened mode (read-only registry) must block learn/forget via pipe."""
 
     def setUp(self):
         """make registry.db read-only to simulate hardened mode."""
@@ -106,8 +106,8 @@ class test_hardened_mode_via_pipe(unittest.TestCase):
         out, _ = _pipe("learn subtract")
         self.assertIn("hardened", out.lower())
 
-    def test_unlearn_blocked_in_hardened_pipe(self):
-        out, _ = _pipe("unlearn subtract")
+    def test_forget_blocked_in_hardened_pipe(self):
+        out, _ = _pipe("forget subtract")
         self.assertIn("hardened", out.lower())
 
     def test_normal_sentence_works_in_hardened_pipe(self):

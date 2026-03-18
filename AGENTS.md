@@ -9,6 +9,12 @@
 
 ---
 
+## 0. AI Instructions
+
+> **Never start coding without approval. Answer queries first and only then, you code once you have approval.**
+
+---
+
 ## 1. Core Philosophy
 
 Same as the original CLINT, formalized:
@@ -76,8 +82,8 @@ Logs need structured querying (iterations per prompt, recent N prompts, learning
 **Recommendation: SQLite for registry metadata + individual `.py` files for handler code.**
 
 Why the hybrid:
-- SQLite stores: token name, aliases, priority, category, metadata, test cases, file path, destructive flag, approval state
-- Individual `.py` files store: the actual handler function code
+- SQLite stores: token name, aliases, priority, category, metadata, handler file path, test file path, destructive flag, approval state
+- Individual `.py` files store: the actual handler function code AND test suites
 - This gives us: fast indexed lookup AND git-friendly diffs on handler code AND human-readable source files AND easy community sharing (a token = .py file + metadata JSON)
 
 ---
@@ -169,11 +175,12 @@ cinnamonint/
 │   │   ├── logger.py              # Core logging (prompts, results, events)
 │   │   ├── iterations.py          # Per-prompt iteration chain tracking
 │   │   └── schema.sql             # DB schema for logs
-│   ├── community/                 # Import/export
+│   ├── community/                 # Import/export/forget/restore
 │   │   ├── __init__.py
 │   │   ├── importer.py            # Download + review + install tokens
 │   │   ├── exporter.py            # Package tokens for sharing
-│   │   └── sources.py             # Remote source management
+│   │   ├── forget.py              # Remove tokens with archive for recovery
+│   │   └── restore.py             # Re-import forgotten tokens from archive
 │   └── config/
 │       ├── __init__.py
 │       └── settings.py            # Configuration (API keys, paths, flags)
@@ -362,11 +369,13 @@ CREATE TABLE tokens (
     category      TEXT NOT NULL,              -- "math", "system", "media", ...
     priority      INTEGER DEFAULT 1,          -- processing precedence
     handler_path  TEXT NOT NULL,              -- "tokens/math/plus.py"
+    test_path     TEXT,                       -- "tests/math/test_plus.py" (NULL if no tests)
     destructive   BOOLEAN DEFAULT 0,          -- always ask permission?
     downloads     BOOLEAN DEFAULT 0,          -- involves downloading?
     uploads       BOOLEAN DEFAULT 0,          -- involves uploading?
     approved      BOOLEAN DEFAULT 0,          -- has user approved first run?
     author        TEXT DEFAULT 'local',       -- 'local' or community author
+    source        TEXT DEFAULT 'seed',        -- 'seed', 'learn', or 'import'
     version       TEXT DEFAULT '1.0.0',
     created_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -376,16 +385,6 @@ CREATE TABLE aliases (
     id        INTEGER PRIMARY KEY,
     token_id  INTEGER NOT NULL REFERENCES tokens(id) ON DELETE CASCADE,
     alias     TEXT UNIQUE NOT NULL            -- "add", "+", "sum"
-);
-
-CREATE TABLE test_cases (
-    id              INTEGER PRIMARY KEY,
-    token_id        INTEGER NOT NULL REFERENCES tokens(id) ON DELETE CASCADE,
-    input_sentence  TEXT NOT NULL,             -- "5 plus 3"
-    expected_output TEXT NOT NULL,             -- "8"
-    description     TEXT,                      -- "basic two-number addition"
-    passed          BOOLEAN DEFAULT NULL,      -- last run result
-    last_run_at     TIMESTAMP
 );
 ```
 
@@ -517,18 +516,35 @@ Respond in this exact JSON format:
 }}
 ```
 
-### 6.3 Unlearn Mode
+### 6.3 Forget Mode
+
+**Seeded tokens** (source = `'seed'`) **cannot be forgotten.** These are the built-in tokens registered by `seed.py`. If the user attempts to forget a seeded token, the command is blocked with a message to re-seed manually.
 
 ```
-User: "unlearn subtract"
+User: "forget subtract"
 
-1. Confirm with user: "This will remove 'subtract' and all its aliases. Continue? [y/N]"
-2. Run all OTHER tokens' test suites — check if any depend on "subtract"
-3. If dependencies found, warn user and list them
+1. Resolve alias if needed → get canonical token name
+2. Check source — if 'seed', block and inform user
+3. Confirm with user: "This will remove 'subtract' and all its aliases. Continue? [y/N]"
 4. If user confirms:
-   - Delete from SQLite registry (cascades to aliases, test_cases)
-   - Move handler .py to a trash/archive folder (don't delete — allow recovery)
-   - Log the unlearning event
+   - Export full package (manifest + handler + test) to .token_archive/ via export_token()
+   - Delete handler .py file from tokens/
+   - Delete test .py file from tests/ (if exists)
+   - Delete from SQLite registry (cascades to aliases, approvals)
+   - Log the forget event
+5. Recovery: "restore subtract" re-imports from .token_archive/
+```
+
+### 6.4 Restore Mode
+
+```
+User: "restore subtract"
+  or: "restore" (with no args — lists all archived tokens)
+
+1. If no name given: list all packages in .token_archive/ and return
+2. Check .token_archive/<name>/ exists → error if not
+3. Re-import the archived package via import_token()
+4. Remove the archive directory on success
 ```
 
 ---
@@ -559,6 +575,12 @@ Approval is tracked at the **command variation level**, not just the token level
 - **Hit:** inform user ("Running previously approved: `abc ./f.txt`"), execute
 - **Miss:** prompt user ("First time running: `abc ./f.txt`. Approve? [y/N]"), store approval on yes
 - From the user's perspective: approve once per unique command variation, never asked again for that exact variation
+
+**Operand-based hashing (flagged tokens):**
+
+Flagged handlers (destructive/downloads/uploads) should implement an `extract_operands(sentence)` function that returns a 3-tuple: `(canonical_token_name, parameters, context)`. The approval system calls this function and hashes the tuple instead of the full sentence, so the same operation in different sentences (e.g., `"upload /images/trip to drive"` vs `"move /trip to /images/ and upload /images/trip to drive"`) produces the same hash and only prompts once.
+
+If the handler doesn't implement `extract_operands`, the system falls back to full-sentence hashing (less precise but still functional). During import, the importer warns if a flagged token lacks this function.
 
 **Schema** (in `registry.db`):
 
@@ -623,12 +645,12 @@ CREATE TABLE iterations (
     timestamp       TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- Learning and unlearning events
+-- Learning and forget events
 CREATE TABLE learning_events (
     id          INTEGER PRIMARY KEY,
     timestamp   TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     token_name  TEXT NOT NULL,
-    action      TEXT NOT NULL,          -- 'learn', 'unlearn', 'import', 'update'
+    action      TEXT NOT NULL,          -- 'learn', 'forget', 'import', 'update'
     details     TEXT,                   -- JSON blob with metadata
     source      TEXT DEFAULT 'local'    -- 'local', 'community:<url>'
 );
@@ -725,7 +747,7 @@ What it does:
 | All safety features | Yes | Yes |
 | All logging | Yes | Yes |
 | Learn new tokens | Yes | **No** (registry is read-only) |
-| Unlearn tokens | Yes | **No** |
+| Forget tokens | Yes | **No** |
 | Import community tokens | Yes | **No** |
 | `logs trace` (debug iteration chains) | Yes | Yes |
 | Modify handler files | Yes (edit .py directly) | **No** (inform user to go back to workshop) |
@@ -742,16 +764,16 @@ What it does:
 
 ### 10.1 Token Package Format
 
-A shareable token is a directory or archive:
+A shareable token is a directory with `.cinnamonint` suffixed files:
 
 ```
 subtract/
-├── manifest.json    # metadata
-├── handler.py       # the handler function
-└── tests.json       # test cases
+├── manifest.cinnamonint.json   # metadata
+├── handler.cinnamonint.py      # the handler function
+└── test.cinnamonint.py         # test file (optional)
 ```
 
-**manifest.json:**
+**manifest.cinnamonint.json:**
 ```json
 {
   "name": "subtract",
@@ -763,44 +785,48 @@ subtract/
   "uploads": false,
   "author": "pervez",
   "version": "1.0.0",
-  "description": "Subtraction with natural English syntax",
-  "stdlib_only": true
+  "description": "Subtraction with natural English syntax"
 }
 ```
 
 ### 10.2 Import Flow
 
 ```
-User: "import https://github.com/user/cinnamonint-tokens/tree/main/subtract"
-  or: "import /path/to/local/subtract/"
+User: "import /path/to/local/subtract/"
+  or: "import /path/to/my-tokens/" (bulk — scans subfolders for packages)
 
-1. Download/copy the package to a temp directory
-2. Parse manifest.json
-3. Show user: name, author, description, dependencies
-4. Display handler.py with FULL syntax highlighting
-5. Flag suspicious patterns (Section 7.4) in RED
-6. Prompt: "This code was written by '<author>'. Approve import? [y/N]"
-7. If approved:
-   - Run the package's tests
-   - Run ALL existing token tests (regression check)
-   - If all pass: register token, copy files, log event
-   - If tests fail: show failures, abort (user can retry)
-8. If rejected: clean up temp files, log rejection
+1. Locate manifest.cinnamonint.json in the directory
+2. Parse manifest, validate required fields
+3. Check for conflicts (name or aliases already registered)
+4. Show user: name, author, description, flags
+5. Display handler.cinnamonint.py with FULL syntax highlighting
+6. Flag suspicious patterns (Section 7.4) in RED
+7. Prompt: "This code was written by '<author>'. Approve import? [y/N]"
+8. If approved:
+   - Copy handler to tokens/<category>/<name>.py
+   - Copy test.cinnamonint.py to tests/<category>/test_<name>.py (if present)
+   - Register token in DB (with test_path if test file exists)
+   - Run the package's tests (parsed from test file)
+   - If tests fail: rollback (delete files, remove from DB)
+   - If tests pass: log import event
+9. If rejected: log rejection
 ```
 
 ### 10.3 Export Flow
 
 ```
 User: "export subtract"
+  or: "export subtract, plus" (multiple)
 
-1. Generate manifest.json from registry
-2. Copy handler.py
-3. Export test cases to tests.json
-4. Package into subtract/ directory (or .tar.gz)
-5. Print path to the package
+1. Look up token in registry (resolves aliases)
+2. Generate manifest.cinnamonint.json from registry metadata
+3. Copy handler .py file as handler.cinnamonint.py
+4. Copy test .py file as test.cinnamonint.py (if test_path exists in DB)
+5. Package into exports/<name>/ directory
+6. Print path to the package
 ```
 
-Users share packages via any mechanism — GitHub repos, gists, tarballs, USB drives. No central registry server needed (though one could be built later).
+Same export logic applies to both seeded and imported tokens. Users share packages via any mechanism — GitHub repos, gists, tarballs, USB drives. No central registry server needed (though one could be built later).
 
 ---
 
@@ -884,9 +910,10 @@ Build in stages. No stage begins until the previous is complete and approved.
 | 1 | `src/safety/approvals.py` | Command variation approval system (hash-based, per-variation) |
 | 2 | `src/safety/limits.py` | Iteration limits (50/100/200 thresholds) |
 | 3 | `src/safety/sandbox.py` | Static analysis via `ast.parse()`, suspicious pattern detection |
-| 4 | `src/community/importer.py` | Download + review + install tokens from URL or local path |
-| 5 | `src/community/exporter.py` | Package tokens for sharing (manifest.json + handler.py + tests.json) |
-| 6 | `src/community/sources.py` | Remote source management |
+| 4 | `src/community/importer.py` | Download + review + install tokens from local path |
+| 5 | `src/community/exporter.py` | Package tokens for sharing (manifest.cinnamonint.json + handler.cinnamonint.py + test.cinnamonint.py) |
+| 6 | `src/community/forget.py` | Remove imported tokens with archive for recovery |
+| 7 | `src/community/restore.py` | Re-import forgotten tokens from archive |
 
 **Exit criteria:** Approval prompts work for new command variations. Destructive commands always prompt. Import/export of token packages works with full code review and test verification.
 
@@ -903,7 +930,7 @@ Build in stages. No stage begins until the previous is complete and approved.
 | 7 | LLM prompt crafting | Design and test the prompts that produce correct handlers |
 | 8 | Safety updates | Update `sandbox.py` for learn mode (auto-flag destructive patterns in generated code) |
 
-**Exit criteria:** User can type `learn <word>`, get a generated handler + tests, review, approve, and the token is registered. `unlearn <word>` works. All legacy CLINT capabilities are ported.
+**Exit criteria:** User can type `learn <word>`, get a generated handler + tests, review, approve, and the token is registered. `forget <word>` works. All legacy CLINT capabilities are ported.
 
 ### Stage 4 — Hardened Mode
 
@@ -912,7 +939,7 @@ Build in stages. No stage begins until the previous is complete and approved.
 | 1 | `build.sh` | Test runner, file copier, DB cloner, permission setter, runner script generator |
 | 2 | `dist/` | Generated output directory with read-only registry, writable logs, runner script |
 
-**Exit criteria:** `build.sh` produces a `dist/` folder. Hardened mode runs correctly, rejects learn/import/unlearn commands, and all logging works.
+**Exit criteria:** `build.sh` produces a `dist/` folder. Hardened mode runs correctly, rejects learn/import/forget commands, and all logging works.
 
 ---
 
@@ -953,3 +980,28 @@ Deviations from the original design recorded during implementation.
 
 **Stage:** 1 — Core Engine
 **Reason:** Handlers with "consume all numbers" paths (`multiply`, `divide`, `add`) greedily consumed operands past token keyword boundaries. For example, `multiply 2 2 and 4 divide by 8` produced `128 divide by 8` instead of `16 divide by 8` because `multiply` consumed the `8` that belonged to `divide`. Fix: all multi-number handlers now call `find_token_boundary()` from `src/engine/tokenizer.py` to limit their operand scanning to the region before the next known token. Binary handlers (`minus`, `subtract`, `into`, `by`) only take one number from each side so they naturally respect boundaries. `plus` was additionally fixed to use only the last left number (consistent with `minus`) instead of summing all left numbers.
+
+### 15.3 `test_cases` table dropped — test files are the single source of truth
+
+**Stage:** 2 — Safety & Community
+**Reason:** The original design stored test cases in a `test_cases` SQLite table. In practice, seeded tokens had tests in both the DB and as `.py` files, while imported tokens only had `.py` files. The DB entries were dead data — pytest ran the `.py` files directly, never the DB rows. Maintaining two sources of truth added complexity with no benefit. Resolution: dropped the `test_cases` table entirely, added a `test_path TEXT` column to the `tokens` table pointing to the test `.py` file (e.g., `tests/math/test_plus.py`). Both seeded and imported tokens now follow the same pattern: test files are the only source of truth, and the DB just tracks where they live.
+
+### 15.4 Seeded tokens are unforgettable
+
+**Stage:** 2 — Safety & Community
+**Reason:** The original §6.3 allowed forgetting any token. During implementation, the decision was made that seeded tokens — the built-in tokens registered by `seed.py` — should not be forgettable. They form the baseline vocabulary. If a user wants to remove a seeded token, they must re-seed manually (delete the DB, re-run seed). The forget command checks `source == 'seed'` and blocks with an informational message.
+
+### 15.5 Forget archives via export, restore re-imports
+
+**Stage:** 2 — Safety & Community
+**Reason:** The original §6.3 suggested moving the handler `.py` to a trash folder. The implementation instead exports the full token package (manifest + handler + test file) to `.token_archive/` using the same `export_token()` function used for sharing. This means archived tokens are complete, self-contained packages in the standard cinnamonint format. Recovery is handled by a `restore` command that simply re-imports the archived package via `import_token()` and removes the archive on success.
+
+### 15.6 Package files use `.cinnamonint` infix naming
+
+**Stage:** 2 — Safety & Community
+**Reason:** The original §10.1 used generic names (`manifest.json`, `handler.py`, `tests.json`). The implementation uses `.cinnamonint` infixed names (`manifest.cinnamonint.json`, `handler.cinnamonint.py`, `test.cinnamonint.py`) to avoid collisions with other files in a directory and to make cinnamonint packages instantly recognizable. The test file was also changed from JSON (`tests.json` / `tests.cinnamonint.json`) to a Python file (`test.cinnamonint.py`) — since test files are actual pytest suites, shipping them as `.py` preserves them exactly as-is without a lossy JSON→Python conversion step.
+
+### 15.7 `source` column replaces `author`-based seeded detection
+
+**Stage:** 2 — Safety & Community
+**Reason:** The original implementation used `author == 'local'` to identify seeded tokens. This conflated "who wrote it" with "how it entered the system." Once learn mode lands (Stage 3), locally learned tokens would also have `author = 'local'` but should be forgettable. Resolution: added a `source TEXT DEFAULT 'seed'` column to the `tokens` table with three values: `'seed'` (built-in via `seed.py`), `'learn'` (taught via learn mode), `'import'` (imported from a package). The `author` field remains purely informational. The forget guard now checks `source == 'seed'`.

@@ -25,8 +25,13 @@ def handle(sentence):
     before = sentence[:start]
     after = sentence[end:]
 
-    # get the last number before 'minus'
-    left_numbers = re.findall(r'[-+]?\d*\.?\d+', before)
+    # left boundary: don't consume numbers across a token boundary
+    from src.engine.tokenizer import find_token_boundary_reverse
+    left_boundary = find_token_boundary_reverse(before, {"minus"})
+    left_region = before[left_boundary:]
+
+    # get the last number before 'minus' (within boundary only)
+    left_numbers = re.findall(r'[-+]?\d*\.?\d+', left_region)
     # get the first number after 'minus'
     right_match = re.match(r'\s*([-+]?\d*\.?\d+)(.*)', after)
 
@@ -35,8 +40,7 @@ def handle(sentence):
         right_val = float(right_match.group(1))
         result = left_val - right_val
 
-        # remove the consumed left number
-        remaining_before = _remove_last_number(before)
+        remaining_before = before[:left_boundary] + _remove_last_number(left_region)
         remaining_after = right_match.group(2)
         result_str = _format_number(result)
         return f"{remaining_before}{result_str}{remaining_after}".strip()

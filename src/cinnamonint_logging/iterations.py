@@ -9,7 +9,7 @@ from src.config.settings import LOGS_DB, ITERATION_RETENTION_COUNT
 def _connect():
     """open a connection to the logs database."""
     conn = sqlite3.connect(LOGS_DB)
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA journal_mode=DELETE")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = sqlite3.Row
     return conn

@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+# Cinnamonint — entry point shortcut
+# Activates the venv and runs src/main.py.
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+"$SCRIPT_DIR/.venv/bin/python" "$SCRIPT_DIR/src/main.py" "$@"

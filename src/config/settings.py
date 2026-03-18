@@ -55,6 +55,22 @@ HISTORY_FILE = os.path.join(PROJECT_ROOT, ".cinnamonint_history")
 # --- logging retention ---
 ITERATION_RETENTION_COUNT = 100
 
+# --- community ---
+EXPORTS_DIR = os.path.join(PROJECT_ROOT, "exports")
+TOKEN_ARCHIVE_DIR = os.path.join(PROJECT_ROOT, ".token_archive")
+
+# --- safety: destructive shell patterns ---
+# strings checked against string literals inside handler source code
+DESTRUCTIVE_PATTERNS = [
+    "rm -rf", "rm -r", "rmdir",
+    "git clean", "git reset --hard",
+    "format c:", "mkfs",
+    "dd if=",
+    "shutdown", "reboot", "poweroff",
+    "> /dev/sda",
+    ":(){:|:&};:",
+]
+
 # --- mode detection ---
 MODE_WORKSHOP = "workshop"
 MODE_HARDENED = "hardened"

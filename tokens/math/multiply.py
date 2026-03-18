@@ -42,18 +42,23 @@ def handle(sentence):
         after_stripped = re.sub(r'^\s+(?:it|them)\b', '', after)
 
     # determine if we should defer to a lower-priority token on the left.
-    # the boundary check only applies when:
-    #   - the "multiply ... by" form is used (signals sequential evaluation), OR
-    #   - a filler word like "it"/"them" is present (refers to a previous result)
-    # in the plain binary "X multiply Y" form, BODMAS applies — take left number.
+    # left boundary: don't consume numbers across a token boundary.
+    # in the plain binary "X multiply Y" form, the left number is taken within
+    # the boundary. in the "multiply X by Y" / filler form, operands come from
+    # the right side only — left_numbers is left empty.
     from src.engine.tokenizer import find_token_boundary_reverse
     left_boundary = find_token_boundary_reverse(before, {"multiply", "multiplied"})
+    left_region = before[left_boundary:]
+
+    # defer (stall) only when a token actually sits on the left AND the sentence
+    # uses the "multiply ... by" or filler form — so add/subtract can resolve first.
+    # plain binary "5 multiply 3" (no token on left) always takes the left number.
     defer_to_left = left_boundary > 0 and (has_by or has_filler)
 
     if defer_to_left:
         left_numbers = []
     else:
-        left_numbers = re.findall(r'[-+]?\d*\.?\d+', before)
+        left_numbers = re.findall(r'[-+]?\d*\.?\d+', left_region)
 
     # extract first number from right
     right_match = re.match(r'\s*([-+]?\d*\.?\d+)(.*)', after_stripped)
@@ -62,7 +67,7 @@ def handle(sentence):
         left_val = float(left_numbers[-1])
         right_val = float(right_match.group(1))
         result = left_val * right_val
-        remaining_before = _remove_last_number(before)
+        remaining_before = before[:left_boundary] + _remove_last_number(left_region)
         remaining_after = right_match.group(2)
         result_str = _format_number(result)
         return f"{remaining_before}{result_str}{remaining_after}".strip()

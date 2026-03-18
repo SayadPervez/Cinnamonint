@@ -1,5 +1,5 @@
 """
-Token registry — SQLite CRUD operations for tokens, aliases, and test cases.
+Token registry — SQLite CRUD operations for tokens and aliases.
 """
 
 import sqlite3
@@ -8,9 +8,9 @@ from src.config.settings import REGISTRY_DB, REGISTRY_SCHEMA
 
 
 def _connect():
-    """open a connection to the registry database with WAL mode and FK support."""
+    """open a connection to the registry database with FK support."""
     conn = sqlite3.connect(REGISTRY_DB)
-    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA journal_mode=DELETE")
     conn.execute("PRAGMA foreign_keys=ON")
     conn.row_factory = sqlite3.Row
     return conn
@@ -30,17 +30,18 @@ def init_db():
 
 def add_token(name, category, priority, handler_path, aliases=None,
               destructive=False, downloads=False, uploads=False,
-              author="local", version="1.0.0"):
+              author="local", source="seed", version="1.0.0",
+              test_path=None):
     """register a new token and its aliases. returns the token id."""
     with _connect() as conn:
         cursor = conn.execute(
             """INSERT INTO tokens
-               (name, category, priority, handler_path, destructive,
-                downloads, uploads, approved, author, version)
-               VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?, ?)""",
-            (name, category, priority, handler_path,
+               (name, category, priority, handler_path, test_path, destructive,
+                downloads, uploads, approved, author, source, version)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)""",
+            (name, category, priority, handler_path, test_path,
              int(destructive), int(downloads), int(uploads),
-             author, version),
+             author, source, version),
         )
         token_id = cursor.lastrowid
         if aliases:
@@ -53,7 +54,7 @@ def add_token(name, category, priority, handler_path, aliases=None,
 
 
 def remove_token(name):
-    """delete a token by name. cascades to aliases and test_cases."""
+    """delete a token by name. cascades to aliases."""
     with _connect() as conn:
         conn.execute("DELETE FROM tokens WHERE name = ?", (name,))
 
@@ -159,53 +160,6 @@ def get_keywords_for_words(words):
         return keyword_map
 
 
-# ---------------------------------------------------------------------------
-# test cases
-# ---------------------------------------------------------------------------
-
-def add_test_case(token_id, input_sentence, expected_output, description=""):
-    """add a test case for a token."""
-    with _connect() as conn:
-        conn.execute(
-            """INSERT INTO test_cases
-               (token_id, input_sentence, expected_output, description)
-               VALUES (?, ?, ?, ?)""",
-            (token_id, input_sentence, expected_output, description),
-        )
-
-
-def get_test_cases(token_id):
-    """return all test cases for a given token id."""
-    with _connect() as conn:
-        rows = conn.execute(
-            "SELECT * FROM test_cases WHERE token_id = ?", (token_id,)
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-
-def get_all_test_cases():
-    """return every test case in the registry."""
-    with _connect() as conn:
-        rows = conn.execute(
-            """SELECT tc.*, t.name as token_name
-               FROM test_cases tc
-               JOIN tokens t ON tc.token_id = t.id
-               ORDER BY t.name"""
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-
-def update_test_result(test_id, passed):
-    """record the result of running a test case."""
-    with _connect() as conn:
-        conn.execute(
-            """UPDATE test_cases
-               SET passed = ?, last_run_at = CURRENT_TIMESTAMP
-               WHERE id = ?""",
-            (int(passed), test_id),
-        )
-
-
 def token_exists(name):
     """check whether a token name or alias is already registered."""
     if get_token(name):
@@ -213,3 +167,49 @@ def token_exists(name):
     if get_token_by_alias(name):
         return True
     return False
+
+
+# ---------------------------------------------------------------------------
+# approvals
+# ---------------------------------------------------------------------------
+
+def check_approval(token_id, command_hash):
+    """return True if this (token_id, command_hash) pair has been approved."""
+    with _connect() as conn:
+        row = conn.execute(
+            """SELECT id FROM approvals
+               WHERE token_id = ? AND command_hash = ?""",
+            (token_id, command_hash),
+        ).fetchone()
+        return row is not None
+
+
+def store_approval(token_id, command_hash, command_display):
+    """record an approved (token_id, command_hash) pair."""
+    with _connect() as conn:
+        conn.execute(
+            """INSERT OR IGNORE INTO approvals
+               (token_id, command_hash, command_display)
+               VALUES (?, ?, ?)""",
+            (token_id, command_hash, command_display),
+        )
+
+
+def get_approvals_for_token(token_id):
+    """return all approved command variations for a token."""
+    with _connect() as conn:
+        rows = conn.execute(
+            """SELECT command_display, approved_at FROM approvals
+               WHERE token_id = ?
+               ORDER BY approved_at DESC""",
+            (token_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+
+def remove_approvals_for_token(token_id):
+    """delete all approvals for a token (used when unlearning)."""
+    with _connect() as conn:
+        conn.execute(
+            "DELETE FROM approvals WHERE token_id = ?", (token_id,),
+        )

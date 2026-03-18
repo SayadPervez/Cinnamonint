@@ -30,8 +30,13 @@ def handle(sentence):
     before = sentence[:start]
     after = sentence[end:]
 
-    # extract numbers from left side
-    left_numbers = re.findall(r'[-+]?\d*\.?\d+', before)
+    # left boundary: don't consume numbers across a token boundary
+    from src.engine.tokenizer import find_token_boundary_reverse
+    left_boundary = find_token_boundary_reverse(before, {"add"})
+    left_region = before[left_boundary:]
+
+    # extract numbers from left side (within boundary only)
+    left_numbers = re.findall(r'[-+]?\d*\.?\d+', left_region)
     # extract the first number from right side
     right_match = re.match(r'\s*([-+]?\d*\.?\d+)(.*)', after)
 
@@ -39,10 +44,15 @@ def handle(sentence):
         left_val = sum(float(n) for n in left_numbers)
         right_val = float(right_match.group(1))
         result = left_val + right_val
-        remaining_before = _remove_numbers_from_end(before)
+        remaining_before = before[:left_boundary] + _remove_numbers_from_end(left_region)
         remaining_after = right_match.group(2)
         result_str = _format_number(result)
         return f"{remaining_before}{result_str}{remaining_after}".strip()
+
+    # if a token boundary blocked the left side, stall — don't fall through
+    # to the multi-number form. let the blocking token resolve first.
+    if before.strip() and left_boundary > 0:
+        return sentence
 
     # "add X, Y, Z" form — sum numbers up to the next token boundary
     from src.engine.tokenizer import find_token_boundary

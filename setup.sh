@@ -20,7 +20,7 @@ echo -e "${CYAN}╚════════════════════�
 echo
 
 # --- 1. Check Python >= 3.10 ---
-echo -e "${YELLOW}[1/6]${NC} Checking Python version..."
+echo -e "${YELLOW}[1/7]${NC} Checking Python version..."
 PYTHON=""
 for candidate in python3 python; do
     if command -v "$candidate" &>/dev/null; then
@@ -42,7 +42,7 @@ fi
 echo -e "  ${GREEN}✓${NC} Found $PYTHON ($version)"
 
 # --- 2. Create virtual environment ---
-echo -e "${YELLOW}[2/6]${NC} Creating virtual environment..."
+echo -e "${YELLOW}[2/7]${NC} Creating virtual environment..."
 if [ -d ".venv" ]; then
     echo -e "  ${GREEN}✓${NC} .venv already exists"
 else
@@ -54,18 +54,18 @@ fi
 source .venv/bin/activate
 
 # --- 3. Install dependencies ---
-echo -e "${YELLOW}[3/6]${NC} Installing dependencies..."
+echo -e "${YELLOW}[3/7]${NC} Installing dependencies..."
 pip install --require-hashes -r requirements.txt --quiet
 pip install --require-hashes -r requirements-dev.txt --quiet
 echo -e "  ${GREEN}✓${NC} Dependencies installed (runtime + dev)"
 
 # --- 4. Create directory structure ---
-echo -e "${YELLOW}[4/6]${NC} Creating directories..."
+echo -e "${YELLOW}[4/7]${NC} Creating directories..."
 mkdir -p db tokens/math tokens/system tokens/utility tests
 echo -e "  ${GREEN}✓${NC} Directory structure ready"
 
 # --- 5. Initialize databases ---
-echo -e "${YELLOW}[5/6]${NC} Initializing databases..."
+echo -e "${YELLOW}[5/7]${NC} Initializing databases..."
 python -c "
 import sys, os
 sys.path.insert(0, '.')
@@ -78,9 +78,14 @@ print('  databases initialized')
 echo -e "  ${GREEN}✓${NC} registry.db and logs.db ready"
 
 # --- 6. Seed built-in tokens ---
-echo -e "${YELLOW}[6/6]${NC} Seeding built-in tokens..."
+echo -e "${YELLOW}[6/7]${NC} Seeding built-in tokens..."
 python src/seed.py
 echo -e "  ${GREEN}✓${NC} Built-in tokens registered"
+
+# --- 7. Make entry point executable ---
+echo -e "${YELLOW}[7/7]${NC} Setting up entry point..."
+chmod +x "$SCRIPT_DIR/cinnamonint"
+echo -e "  ${GREEN}✓${NC} ./cinnamonint is executable"
 
 echo
 echo -e "${GREEN}══════════════════════════════════════${NC}"
@@ -88,11 +93,10 @@ echo -e "${GREEN}  Setup complete! Workshop mode ready.${NC}"
 echo -e "${GREEN}══════════════════════════════════════${NC}"
 echo
 echo -e "To start Cinnamonint:"
-echo -e "  ${CYAN}source .venv/bin/activate${NC}"
-echo -e "  ${CYAN}python src/main.py${NC}"
+echo -e "  ${CYAN}./cinnamonint${NC}"
 echo
-echo -e "Or add an alias to your shell config:"
-echo -e "  ${CYAN}alias cinnamonint='cd $SCRIPT_DIR && source .venv/bin/activate && python src/main.py'${NC}"
+echo -e "Or add it to your PATH:"
+echo -e "  ${CYAN}ln -s $SCRIPT_DIR/cinnamonint ~/.local/bin/cinnamonint${NC}"
 echo
 echo -e "To run tests:"
 echo -e "  ${CYAN}python -m pytest tests/ -v${NC}"

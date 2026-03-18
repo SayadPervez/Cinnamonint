@@ -8,11 +8,16 @@ import os
 from src.config.settings import PROJECT_ROOT
 
 
-def load_handler(handler_path):
+def load_handler(handler_path, raw_module=False):
     """load a handler module from its path and return the handle() function.
 
     handler_path is relative to the project root, e.g. 'tokens/math/plus.py'.
-    returns the handle callable, or raises on failure.
+
+    if raw_module is True, return the entire module object instead of just
+    the handle() function (used to inspect additional exports like
+    extract_operands).
+
+    returns the handle callable (or module), or raises on failure.
     """
     abs_path = os.path.join(PROJECT_ROOT, handler_path)
     if not os.path.exists(abs_path):
@@ -25,6 +30,9 @@ def load_handler(handler_path):
 
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+
+    if raw_module:
+        return module
 
     if not hasattr(module, "handle"):
         raise AttributeError(f"handler {handler_path} has no handle() function")

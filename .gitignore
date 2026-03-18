@@ -33,3 +33,9 @@ Thumbs.db
 
 # Legacy CLINT source
 legacy/
+
+# Archive
+.token_archive/
+
+# exports
+exports/

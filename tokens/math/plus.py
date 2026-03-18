@@ -26,8 +26,13 @@ def handle(sentence):
     before = sentence[:start]
     after = sentence[end:]
 
-    # extract numbers from left side
-    left_numbers = re.findall(r'[-+]?\d*\.?\d+', before)
+    # left boundary: don't consume numbers across a token boundary
+    from src.engine.tokenizer import find_token_boundary_reverse
+    left_boundary = find_token_boundary_reverse(before, {"plus", "+"})
+    left_region = before[left_boundary:]
+
+    # extract numbers from left side (within boundary only)
+    left_numbers = re.findall(r'[-+]?\d*\.?\d+', left_region)
     # extract the first number from right side
     right_match = re.match(r'\s*([-+]?\d*\.?\d+)(.*)', after)
 
@@ -35,8 +40,7 @@ def handle(sentence):
         left_val = float(left_numbers[-1])
         right_val = float(right_match.group(1))
         result = left_val + right_val
-        # clean up: remove the consumed left number from before
-        remaining_before = _remove_last_number(before)
+        remaining_before = before[:left_boundary] + _remove_last_number(left_region)
         remaining_after = right_match.group(2)
         result_str = _format_number(result)
         return f"{remaining_before}{result_str}{remaining_after}".strip()

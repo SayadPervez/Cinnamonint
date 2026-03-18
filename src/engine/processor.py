@@ -8,15 +8,13 @@ from src.engine.tokenizer import find_tokens_in_sentence
 from src.engine.resolver import resolve_next_token
 from src.registry.loader import load_handler
 from src.registry.store import get_all_keywords, get_keywords_for_words
-from src.config.settings import (
-    SOFT_ITERATION_LIMIT,
-    WARN_ITERATION_LIMIT,
-    HARD_ITERATION_LIMIT,
-    WORD_LOOKUP_THRESHOLD,
-)
+from src.safety.approvals import check_and_approve
+from src.safety.limits import check_iteration_limit
+from src.config.settings import WORD_LOOKUP_THRESHOLD
 
 
-def process(sentence, on_iteration=None, on_limit_reached=None):
+def process(sentence, on_iteration=None, on_limit_reached=None,
+            interactive=True):
     """run the iterative reduction loop on a sentence.
 
     parameters:
@@ -27,6 +25,8 @@ def process(sentence, on_iteration=None, on_limit_reached=None):
         on_limit_reached  — optional callback(iteration_count, current_sentence)
                             that returns True to continue or False to stop.
                             used for the 50-iteration pause-and-ask feature.
+        interactive       — whether approval prompts can be shown (False for
+                            piped input)
 
     returns:
         (final_sentence, iteration_count, status)
@@ -46,19 +46,12 @@ def process(sentence, on_iteration=None, on_limit_reached=None):
             break
 
         # --- check iteration limits ---
-        if iteration >= HARD_ITERATION_LIMIT:
-            status = "limit_reached"
+        should_continue, limit_status = check_iteration_limit(
+            iteration, sentence, on_limit_reached
+        )
+        if not should_continue:
+            status = limit_status
             break
-
-        if iteration > 0 and iteration % SOFT_ITERATION_LIMIT == 0:
-            if on_limit_reached:
-                should_continue = on_limit_reached(iteration, sentence)
-                if not should_continue:
-                    status = "limit_reached"
-                    break
-            if iteration >= WARN_ITERATION_LIMIT and on_limit_reached:
-                # the callback already handled it above
-                pass
 
         # --- pick the next token to process ---
         chosen = resolve_next_token(candidates)
@@ -68,6 +61,11 @@ def process(sentence, on_iteration=None, on_limit_reached=None):
         keyword = chosen["keyword"]
         token = chosen["token"]
         handler_path = token["handler_path"]
+
+        # --- approval gate (flagged tokens only) ---
+        if not check_and_approve(token, sentence, interactive=interactive):
+            skipped_keywords.add(keyword)
+            continue
 
         # --- load and execute handler ---
         before = sentence
