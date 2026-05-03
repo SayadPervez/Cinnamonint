@@ -7,9 +7,16 @@ import os
 
 
 def _find_project_root():
-    """walk up from this file until we find setup.sh (our root marker)."""
+    """walk up from this file until we find a root marker.
+
+    markers (checked in order):
+        .cinnamonint_root — created by build.sh in dist/
+        setup.sh          — present in the workshop project root
+    """
     current = os.path.dirname(os.path.abspath(__file__))
     while True:
+        if os.path.exists(os.path.join(current, ".cinnamonint_root")):
+            return current
         if os.path.exists(os.path.join(current, "setup.sh")):
             return current
         parent = os.path.dirname(current)
@@ -55,6 +62,7 @@ HARD_ITERATION_LIMIT = 200
 
 # --- handler execution ---
 HANDLER_TIMEOUT_SECONDS = 5
+HANDLER_EXECUTION_MODE = "subprocess"  # "subprocess" (safe default) | "direct" (fast, opt-in)
 
 # --- keyword lookup ---
 # sentences with this many words or fewer use per-word DB lookup instead of
@@ -70,6 +78,12 @@ ITERATION_RETENTION_COUNT = 100
 # --- community ---
 EXPORTS_DIR = os.path.join(PROJECT_ROOT, "exports")
 TOKEN_ARCHIVE_DIR = os.path.join(PROJECT_ROOT, ".token_archive")
+
+# --- spell correction ---
+DATA_DIR = os.path.join(PROJECT_ROOT, "data")
+DICTIONARY_FILE = os.path.join(DATA_DIR, "words.txt")
+USER_DICTIONARY_FILE = os.path.join(DATA_DIR, "user_dictionary.json")
+CORRECTIONS_FILE = os.path.join(DATA_DIR, "corrections.json")
 
 # --- learn mode ---
 LEARN_HANDOVER_FILE = os.path.join(PROJECT_ROOT, ".learn_handover.json")

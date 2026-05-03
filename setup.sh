@@ -20,7 +20,7 @@ echo -e "${CYAN}╚════════════════════�
 echo
 
 # --- 1. Check Python >= 3.10 ---
-echo -e "${YELLOW}[1/7]${NC} Checking Python version..."
+echo -e "${YELLOW}[1/8]${NC} Checking Python version..."
 PYTHON=""
 for candidate in python3 python; do
     if command -v "$candidate" &>/dev/null; then
@@ -42,7 +42,7 @@ fi
 echo -e "  ${GREEN}✓${NC} Found $PYTHON ($version)"
 
 # --- 2. Create virtual environment ---
-echo -e "${YELLOW}[2/7]${NC} Creating virtual environment..."
+echo -e "${YELLOW}[2/8]${NC} Creating virtual environment..."
 if [ -d ".venv" ]; then
     echo -e "  ${GREEN}✓${NC} .venv already exists"
 else
@@ -54,18 +54,18 @@ fi
 source .venv/bin/activate
 
 # --- 3. Install dependencies ---
-echo -e "${YELLOW}[3/7]${NC} Installing dependencies..."
+echo -e "${YELLOW}[3/8]${NC} Installing dependencies..."
 pip install --require-hashes -r requirements.txt --quiet
 pip install --require-hashes -r requirements-dev.txt --quiet
 echo -e "  ${GREEN}✓${NC} Dependencies installed (runtime + dev)"
 
 # --- 4. Create directory structure ---
-echo -e "${YELLOW}[4/7]${NC} Creating directories..."
+echo -e "${YELLOW}[4/8]${NC} Creating directories..."
 mkdir -p db tokens/math tokens/system tokens/utility tests
 echo -e "  ${GREEN}✓${NC} Directory structure ready"
 
 # --- 5. Initialize databases ---
-echo -e "${YELLOW}[5/7]${NC} Initializing databases..."
+echo -e "${YELLOW}[5/8]${NC} Initializing databases..."
 python -c "
 import sys, os
 sys.path.insert(0, '.')
@@ -78,12 +78,42 @@ print('  databases initialized')
 echo -e "  ${GREEN}✓${NC} registry.db and logs.db ready"
 
 # --- 6. Seed built-in tokens ---
-echo -e "${YELLOW}[6/7]${NC} Seeding built-in tokens..."
+echo -e "${YELLOW}[6/8]${NC} Seeding built-in tokens..."
 python src/seed.py
 echo -e "  ${GREEN}✓${NC} Built-in tokens registered"
 
-# --- 7. Make entry point executable ---
-echo -e "${YELLOW}[7/7]${NC} Setting up entry point..."
+# --- 7. Optional English dictionary for enhanced spell correction ---
+echo -e "${YELLOW}[7/8]${NC} Enhanced spell correction..."
+DICT_FILE="$SCRIPT_DIR/data/words.txt"
+if [ -f "$DICT_FILE" ]; then
+    echo -e "  ${GREEN}✓${NC} Dictionary already present ($(wc -l < "$DICT_FILE") words)"
+else
+    echo -en "  Download English dictionary for enhanced spell correction? (~1 MB) [y/N]: "
+    read -r answer
+    if [[ "$answer" =~ ^[Yy]$ ]]; then
+        mkdir -p "$SCRIPT_DIR/data"
+        # try system dictionary first, then download
+        if [ -f /usr/share/dict/words ]; then
+            cp /usr/share/dict/words "$DICT_FILE"
+            echo -e "  ${GREEN}✓${NC} Copied system dictionary ($(wc -l < "$DICT_FILE") words)"
+        else
+            DICT_URL="https://raw.githubusercontent.com/dwyl/english-words/master/words_alpha.txt"
+            if curl -fsSL "$DICT_URL" -o "$DICT_FILE" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} Downloaded dictionary ($(wc -l < "$DICT_FILE") words)"
+            elif wget -q "$DICT_URL" -O "$DICT_FILE" 2>/dev/null; then
+                echo -e "  ${GREEN}✓${NC} Downloaded dictionary ($(wc -l < "$DICT_FILE") words)"
+            else
+                echo -e "  ${YELLOW}⚠${NC} Download failed — spell correction will use token-only mode"
+                rm -f "$DICT_FILE"
+            fi
+        fi
+    else
+        echo -e "  ${CYAN}↦${NC} Skipped — spell correction will use token-only mode"
+    fi
+fi
+
+# --- 8. Make entry point executable ---
+echo -e "${YELLOW}[8/8]${NC} Setting up entry point..."
 chmod +x "$SCRIPT_DIR/cinnamonint"
 echo -e "  ${GREEN}✓${NC} ./cinnamonint is executable"
 

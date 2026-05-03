@@ -29,8 +29,15 @@ def handle(sentence):
     if not match:
         return sentence
 
-    # clear the terminal
-    os.system("clear" if os.name != "nt" else "cls")
+    # clear the terminal — write ANSI codes directly to the controlling
+    # terminal, bypassing stdout (which may be captured in subprocess mode).
+    try:
+        fd = os.open("/dev/tty", os.O_WRONLY)
+        os.write(fd, b"\033[H\033[2J\033[3J")
+        os.close(fd)
+    except OSError:
+        # fallback for environments without /dev/tty
+        os.system("clear" if os.name != "nt" else "cls")
 
     start, end = match.start(), match.end()
     before = sentence[:start].strip()

@@ -4,13 +4,22 @@ The iterative reduction engine — core sentence processing loop.
 
 import time
 
-from src.engine.tokenizer import find_tokens_in_sentence
+from src.engine.tokenizer import find_tokens_in_sentence, _strip_punctuation
 from src.engine.resolver import resolve_next_token
-from src.registry.loader import load_handler
+from src.registry.loader import execute_handler
 from src.registry.store import get_all_keywords, get_keywords_for_words
 from src.safety.approvals import check_and_approve
 from src.safety.limits import check_iteration_limit
-from src.config.settings import WORD_LOOKUP_THRESHOLD
+from src.config.settings import WORD_LOOKUP_THRESHOLD, HANDLER_TIMEOUT_SECONDS
+
+
+# handlers that manage their own timing (e.g. wait/pause with countdowns)
+# are exempt from the subprocess timeout.
+_TIMEOUT_EXEMPT_HANDLERS = {"tokens/utility/wait.py"}
+
+# handlers whose print output should stream live to the terminal
+# (stderr inherited, not buffered)
+_LIVE_OUTPUT_HANDLERS = {"tokens/utility/wait.py"}
 
 
 def process(sentence, on_iteration=None, on_limit_reached=None,
@@ -72,8 +81,10 @@ def process(sentence, on_iteration=None, on_limit_reached=None,
         start_time = time.perf_counter_ns()
 
         try:
-            handler = load_handler(handler_path)
-            sentence = handler(sentence)
+            timeout = None if handler_path in _TIMEOUT_EXEMPT_HANDLERS else HANDLER_TIMEOUT_SECONDS
+            inherit_stderr = handler_path in _LIVE_OUTPUT_HANDLERS
+            sentence = execute_handler(handler_path, sentence, timeout=timeout,
+                                       inherit_stderr=inherit_stderr)
         except Exception as e:
             # handler crashed — stop processing, report error
             if on_iteration:
@@ -119,8 +130,10 @@ def _build_keyword_map(sentence):
     for long sentences, fall back to fetching all keywords.
     """
     words = sentence.lower().split()
+    cleaned = [_strip_punctuation(w) for w in words]
+    cleaned = [w for w in cleaned if w]
     if len(words) <= WORD_LOOKUP_THRESHOLD:
-        return get_keywords_for_words(words)
+        return get_keywords_for_words(cleaned)
     return get_all_keywords()
 
 

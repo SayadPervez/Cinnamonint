@@ -5,6 +5,11 @@ Token identification — find known tokens in a sentence.
 import re
 
 
+def _strip_punctuation(word):
+    """strip leading/trailing punctuation from a word for keyword lookup."""
+    return word.strip(".,;:!?\"'()[]{}")
+
+
 def find_tokens_in_sentence(sentence, keyword_map):
     """find all known tokens present in the sentence.
 
@@ -20,14 +25,15 @@ def find_tokens_in_sentence(sentence, keyword_map):
 
     # single-word tokens — match against individual words
     for i, word in enumerate(words):
-        if word in keyword_map and word not in seen_keywords:
+        cleaned = _strip_punctuation(word)
+        if cleaned in keyword_map and cleaned not in seen_keywords:
             position = _word_position(sentence, words, i)
             found.append({
-                "keyword": word,
+                "keyword": cleaned,
                 "position": position,
-                "token": keyword_map[word],
+                "token": keyword_map[cleaned],
             })
-            seen_keywords.add(word)
+            seen_keywords.add(cleaned)
 
     # multi-word tokens — scan for phrases in the sentence
     for keyword, token in keyword_map.items():
@@ -77,10 +83,11 @@ def find_token_boundary(text, exclude_keywords=None):
     pos = 0
     for word in words:
         word_start = lower.find(word, pos)
-        if word in exclude_keywords:
+        cleaned = _strip_punctuation(word)
+        if cleaned in exclude_keywords:
             pos = word_start + len(word)
             continue
-        if word in keyword_map:
+        if cleaned in keyword_map:
             return word_start
         pos = word_start + len(word)
 
@@ -119,10 +126,11 @@ def find_token_boundary_reverse(text, exclude_keywords=None):
     pos = 0
     for word in words:
         word_start = lower.find(word, pos)
-        if word in exclude_keywords:
+        cleaned = _strip_punctuation(word)
+        if cleaned in exclude_keywords:
             pos = word_start + len(word)
             continue
-        if word in keyword_map:
+        if cleaned in keyword_map:
             last_boundary = word_start + len(word)
         pos = word_start + len(word)
 

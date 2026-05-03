@@ -11,6 +11,7 @@ from rich.console import Console
 
 from src.config.settings import detect_mode, MODE_HARDENED
 from src.commands.logs import handle_logs_command
+from src.commands.dictionary import handle_dictionary_command
 from src.community.exporter import export_token, export_tokens
 from src.community.importer import import_token, import_tokens_from_dir
 from src.community.forget import forget_token
@@ -46,6 +47,12 @@ def dispatch(user_input):
     if lower.startswith("logs"):
         parts = stripped.split()
         handle_logs_command(parts)
+        return True
+
+    # --- dictionary ---
+    if lower.startswith("dictionary"):
+        parts = stripped.split()
+        handle_dictionary_command(parts)
         return True
 
     # --- mutation commands: single hardened-mode gate ---

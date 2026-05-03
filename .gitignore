@@ -42,3 +42,6 @@ exports/
 
 # Learn mode handover state
 .learn_handover.json
+
+# User data (dictionary, corrections)
+data/

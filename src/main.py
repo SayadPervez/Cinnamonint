@@ -13,6 +13,7 @@ from rich.console import Console
 
 from src.config.settings import detect_mode, MODE_HARDENED, HISTORY_FILE
 from src.engine.processor import process
+from src.engine.spellcheck import spellcheck
 from src.cinnamonint_logging.logger import log_prompt
 from src.cinnamonint_logging.iterations import log_iteration, prune_old_iterations
 from src.commands.dispatch import dispatch
@@ -73,6 +74,17 @@ def _process_input(user_input):
     _iteration_records = []
 
     interactive = sys.stdin.isatty()
+
+    # --- spell correction (pre-processing) ---
+    stripped = spellcheck(stripped, interactive=interactive)
+
+    # replace readline history entry with corrected version so up-arrow
+    # recalls the corrected input, not the typo
+    if interactive and stripped != user_input.strip():
+        current = readline.get_current_history_length()
+        if current > 0:
+            readline.replace_history_item(current - 1, stripped)
+
     final, iterations, status = process(
         stripped,
         on_iteration=_on_iteration,
@@ -142,7 +154,7 @@ def repl():
 
     while True:
         try:
-            user_input = input("\033[1;32m>>> \033[0m")
+            user_input = input("\001\033[1;32m\002>>> \001\033[0m\002")
             if not _process_input(user_input):
                 break
         except (KeyboardInterrupt, EOFError):

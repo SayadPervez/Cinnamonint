@@ -103,8 +103,8 @@ class test_engine_system(unittest.TestCase):
     """test system tokens."""
 
     def test_say(self):
-        result, _, status = process("say hello world")
-        self.assertEqual(result, "hello world")
+        result, _, status = process("say good morning")
+        self.assertEqual(result, "good morning")
         self.assertEqual(status, "ok")
 
 
@@ -112,8 +112,8 @@ class test_engine_no_tokens(unittest.TestCase):
     """test sentences with no recognized tokens."""
 
     def test_plain_text(self):
-        result, iterations, status = process("hello world")
-        self.assertEqual(result, "hello world")
+        result, iterations, status = process("good morning world")
+        self.assertEqual(result, "good morning world")
         self.assertEqual(iterations, 0)
         self.assertEqual(status, "ok")
 
