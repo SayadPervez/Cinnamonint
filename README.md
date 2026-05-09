@@ -61,7 +61,7 @@ Each token is a self-contained Python module with a `handle(sentence)` function.
 
 ```bash
 # Clone the repository
-git clone https://github.com/SayadPervez/Cinnamonint.git
+git clone https://github.com/Cinnamonint/Cinnamonint.git
 cd Cinnamonint
 
 # Run setup (creates venv, installs deps, initializes DBs, seeds tokens)
@@ -471,7 +471,7 @@ The maintainer is employed full-time. Pull requests are reviewed manually and wi
 
 ```bash
 # fork + clone
-git clone https://github.com/<you>/Cinnamonint.git
+git clone https://github.com/Cinnamonint/Cinnamonint.git
 cd Cinnamonint
 ./setup.sh
 
