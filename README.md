@@ -1,5 +1,7 @@
 # Cinnamonint
 
+## Project will be maintained from https://github.com/CinnamonInt/Cinnamonint
+
 A deterministic, iterative sentence-reduction engine in Python. Users type natural-language sentences; the engine identifies registered token keywords, calls their handlers to transform the sentence, and loops until no tokens remain.
 
 No neural networks. No training data. No hallucinations. Just explicit, auditable, one-word-at-a-time intelligence.
