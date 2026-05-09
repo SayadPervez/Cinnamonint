@@ -129,6 +129,22 @@ BUILTIN_TOKENS = [
         "test_path": "tests/system/test_clear.py",
         "aliases": ["cls", "clrscr"],
     },
+    {
+        "name": "hi",
+        "category": "system",
+        "priority": 1,
+        "handler_path": "tokens/system/hi.py",
+        "test_path": "tests/system/test_hi.py",
+        "aliases": ["hey", "hello", "greetings", "howdy", "sup"],
+    },
+    {
+        "name": "wait",
+        "category": "utility",
+        "priority": 1,
+        "handler_path": "tokens/utility/wait.py",
+        "test_path": "tests/utility/test_wait.py",
+        "aliases": ["pause"],
+    },
 ]
 
 
